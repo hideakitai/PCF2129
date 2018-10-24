@@ -27,7 +27,7 @@ namespace EmbeddedDevices
             SECOND_ALARM = 0x0A,
             MINUTE_ALARM = 0x0B,
             HOUR_ALARM = 0x0C,
-            DAY_ALARM - 0x0D,
+            DAY_ALARM = 0x0D,
             WEEKDAY_ALARM = 0x0E,
             CLKOUT_CTL = 0x0F,
             WATCHDG_TIM_CTL = 0x10,
