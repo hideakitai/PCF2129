@@ -49,7 +49,7 @@ namespace EmbeddedDevices
             WATCHDG_TIM_CTL_TI_TP_0 = 0x03
         };
 
-        const uint8_t I2C_ADDR;
+        const uint8_t I2C_ADDR {0x51};
         const uint8_t pin_INT;
         volatile bool b_interrupt;
 
@@ -67,47 +67,36 @@ namespace EmbeddedDevices
     public:
 
         explicit PCF2129(uint8_t pin_int)
-        : I2C_ADDR(0x51)
-        , pin_INT(pin_int)
+        : pin_INT(pin_int)
         , b_interrupt(false)
         {
         }
 
-        uint8_t second()  { return (read(REG::SECONDS)  & 0x7F); }
-        uint8_t minute()  { return (read(REG::MINUTES)  & 0x7F); }
-        uint8_t hour()    { return (read(REG::HOURS)    & 0x1F); }
-        uint8_t day()     { return (read(REG::DAYS)     & 0x3F); }
-        uint8_t weekday() { return (read(REG::WEEKDAYS) & 0x07); }
-        uint8_t month()   { return (read(REG::MONTHS)   & 0x1F); }
-        uint8_t year()    { return (read(REG::YEARS)    & 0xFF); }
+        uint8_t second()  { return (read((uint8_t)REG::SECONDS)  & 0x7F); }
+        uint8_t minute()  { return (read((uint8_t)REG::MINUTES)  & 0x7F); }
+        uint8_t hour()    { return (read((uint8_t)REG::HOURS)    & 0x1F); }
+        uint8_t day()     { return (read((uint8_t)REG::DAYS)     & 0x3F); }
+        uint8_t weekday() { return (read((uint8_t)REG::WEEKDAYS) & 0x07); }
+        uint8_t month()   { return (read((uint8_t)REG::MONTHS)   & 0x1F); }
+        uint8_t year()    { return (read((uint8_t)REG::YEARS)    & 0xFF); }
 
         void setup()
         {
             pinMode(pin_INT, INPUT); // THIS SHOULD NOT BE "INPUT_PULLUP"
             Wire.begin();
-
-            Wire.beginTransmission(I2C_ADDR);
-            Wire.write((uint8_t)REG::WATCHDG_TIM_CTL);
-            Wire.write((uint8_t)REG_VALUE::WATCHDG_TIM_CTL_TI_TP_0); // default : bit5 TI_TP = 0
-            Wire.endTransmission();
+            writeRegister(REG::WATCHDG_TIM_CTL, (uint8_t)REG_VALUE::WATCHDG_TIM_CTL_TI_TP_0);
             stop();
         }
 
         void start()
         {
-            Wire.beginTransmission(I2C_ADDR);
-            Wire.write((uint8_t)REG::CONTROL1);
-            Wire.write((uint8_t)REG_VALUE::CONTROL1_STOP_0); // set watchdog timer to generate pulse / second, and stop rtc
-            Wire.endTransmission();
+            writeRegister(REG::CONTROL1, (uint8_t)REG_VALUE::CONTROL1_STOP_0);
             resumeInterrupt();
         }
 
         void stop()
         {
-            Wire.beginTransmission(I2C_ADDR);
-            Wire.write((uint8_t)REG::CONTROL1);
-            Wire.write((uint8_t)REG_VALUE::CONTROL1_STOP_1); // set watchdog timer to generate pulse / second, and stop rtc
-            Wire.endTransmission();
+            writeRegister(REG::CONTROL1, (uint8_t)REG_VALUE::CONTROL1_STOP_1);
             resumeInterrupt();
         }
 
@@ -115,13 +104,24 @@ namespace EmbeddedDevices
         void setInterrupted() { b_interrupt = true; }
         void resumeInterrupt()
         {
-            Wire.beginTransmission(I2C_ADDR);
-            Wire.write((uint8_t)REG::CONTROL2);
-            Wire.write(0x00); // clear MSF flag
-            Wire.endTransmission();
+            writeRegister(REG::CONTROL2, 0x00);
             b_interrupt = false;
         }
         bool isInterrupted() const { return b_interrupt; }
+
+        int writeRegister(REG reg, uint8_t data)
+        {
+            Wire.beginTransmission(I2C_ADDR);
+            Wire.write((uint8_t)reg);
+            Wire.write(data);
+            int err = Wire.endTransmission();
+            if (err != 0)
+            {
+                Serial.print("I2C error : ");
+                Serial.println(err);
+            }
+            return err;
+        }
 
         uint8_t read(const uint8_t reg)
         {
@@ -129,7 +129,7 @@ namespace EmbeddedDevices
             Wire.write((uint8_t)reg);
             Wire.endTransmission();
 
-            Wire.requestFrom(I2C_ADDR, 1, true);  // blocking read (request 256 bytes)
+            Wire.requestFrom((int)I2C_ADDR, 1, true);  // blocking read (request 256 bytes)
 
             if (Wire.available()) return Wire.read();
             else                  return 0x00;
